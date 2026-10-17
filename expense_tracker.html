@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Tracker</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f4f8;
+      margin: 0;
+      padding: 20px;
+      color: #222;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    h1 { text-align: center; color: #2c3e50; }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    label { font-size: 14px; font-weight: bold; display: block; margin-bottom: 4px; }
+    input, select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .full { grid-column: 1 / -1; }
+    button {
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      cursor: pointer;
+      color: #fff;
+    }
+    .btn-add { background: #27ae60; width: 100%; }
+    .btn-add:hover { background: #219a52; }
+    .btn-del { background: #e74c3c; padding: 4px 10px; font-size: 13px; }
+    .btn-del:hover { background: #c0392b; }
+    .total {
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .error { color: #e74c3c; font-size: 14px; text-align: center; min-height: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
+    th { background: #f7f9fc; }
+    .empty { text-align: center; color: #888; padding: 15px; }
+    .filter { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .filter select { width: auto; }
+    @media (max-width: 500px) {
+      form { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Expense Tracker</h1>
+
+    <div class="card">
+      <form id="expenseForm">
+        <div>
+          <label for="amount">Amount (Rs)</label>
+          <input type="number" id="amount" min="1" step="0.01" placeholder="e.g. 250" required>
+        </div>
+        <div>
+          <label for="category">Category</label>
+          <select id="category">
+            <option>Food</option>
+            <option>Transport</option>
+            <option>Bills</option>
+            <option>Shopping</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="full">
+          <label for="note">Note (optional)</label>
+          <input type="text" id="note" placeholder="e.g. Lunch with friends">
+        </div>
+        <div class="full">
+          <button type="submit" class="btn-add">Kharcha Add Karein</button>
+        </div>
+      </form>
+      <p class="error" id="error"></p>
+    </div>
+
+    <div class="card total">
+      Total Kharcha: Rs <span id="total">0.00</span>
+    </div>
+
+    <div class="card">
+      <div class="filter">
+        <strong>Kharche ki list</strong>
+        <select id="filterCategory">
+          <option value="All">Sab categories</option>
+          <option>Food</option>
+          <option>Transport</option>
+          <option>Bills</option>
+          <option>Shopping</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Category</th>
+            <th>Amount</th>
+            <th>Note</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="expenseList"></tbody>
+      </table>
+      <p class="empty" id="emptyMsg">Abhi koi kharcha nahi hai.</p>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "expenses";
+    let expenses = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+    const form = document.getElementById("expenseForm");
+    const amountInput = document.getElementById("amount");
+    const categoryInput = document.getElementById("category");
+    const noteInput = document.getElementById("note");
+    const errorMsg = document.getElementById("error");
+    const filterSelect = document.getElementById("filterCategory");
+    const listBody = document.getElementById("expenseList");
+    const totalEl = document.getElementById("total");
+    const emptyMsg = document.getElementById("emptyMsg");
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+    }
+
+    function render() {
+      const filter = filterSelect.value;
+      const visible = expenses
+        .map((e, index) => ({ ...e, index }))
+        .filter(e => filter === "All" || e.category === filter);
+
+      listBody.innerHTML = "";
+      visible.forEach(e => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${e.date}</td>
+          <td>${e.category}</td>
+          <td>Rs ${e.amount.toFixed(2)}</td>
+          <td>${escapeHtml(e.note)}</td>
+          <td><button class="btn-del" data-index="${e.index}">Delete</button></td>
+        `;
+        listBody.appendChild(row);
+      });
+
+      emptyMsg.style.display = visible.length ? "none" : "block";
+
+      const total = visible.reduce((sum, e) => sum + e.amount, 0);
+      totalEl.textContent = total.toFixed(2);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const amount = parseFloat(amountInput.value);
+
+      if (isNaN(amount) || amount <= 0) {
+        errorMsg.textContent = "Sahi amount likhein (0 se zyada).";
+        return;
+      }
+
+      errorMsg.textContent = "";
+      expenses.push({
+        date: new Date().toISOString().slice(0, 10),
+        category: categoryInput.value,
+        amount: amount,
+        note: noteInput.value.trim()
+      });
+
+      save();
+      form.reset();
+      render();
+    });
+
+    listBody.addEventListener("click", (event) => {
+      if (event.target.classList.contains("btn-del")) {
+        const index = parseInt(event.target.dataset.index, 10);
+        if (confirm("Yeh kharcha delete karna hai?")) {
+          expenses.splice(index, 1);
+          save();
+          render();
+        }
+      }
+    });
+
+    filterSelect.addEventListener("change", render);
+
+    render();
+  </script>
+</body>
+</html>
